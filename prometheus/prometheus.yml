@@ -1,3 +1,7 @@
+# Prometheus Configuration
+# Pulse HPC Cluster Observability Platform
+# Phase 3: Observability Excellence
+
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -5,16 +9,31 @@ global:
     cluster: "pulse-demo"
     environment: "development"
 
-# Alertmanager configuration (to be added in Phase 3)
-# alerting:
-#   alertmanagers:
-#     - static_configs:
-#         - targets:
-#           - alertmanager:9093
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+      timeout: 10s
+      api_version: v2
 
-# Rule files (to be added in Phase 3)
-# rule_files:
-#   - /etc/prometheus/rules/*.yml
+# Rule files for alerting
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+# Remote write to VictoriaMetrics for long-term storage
+remote_write:
+  - url: http://victoriametrics:8428/api/v1/write
+    queue_config:
+      max_samples_per_send: 10000
+      capacity: 20000
+      max_shards: 10
+    write_relabel_configs:
+      # Add source label for debugging
+      - source_labels: []
+        target_label: __source__
+        replacement: prometheus
 
 scrape_configs:
   # Prometheus self-monitoring
@@ -51,12 +70,29 @@ scrape_configs:
     metrics_path: /metrics
     scrape_interval: 5s  # Frequent for job state changes
 
-  # Redis metrics (using redis_exporter if added later)
-  # - job_name: "redis"
-  #   static_configs:
-  #     - targets: ["redis-exporter:9121"]
+  # Alertmanager metrics
+  - job_name: "alertmanager"
+    static_configs:
+      - targets: ["alertmanager:9093"]
+        labels:
+          service: "alertmanager"
+    metrics_path: /metrics
+    scrape_interval: 15s
 
-  # PostgreSQL metrics (using postgres_exporter if added later)
-  # - job_name: "postgres"
-  #   static_configs:
-  #     - targets: ["postgres-exporter:9187"]
+  # VictoriaMetrics metrics
+  - job_name: "victoriametrics"
+    static_configs:
+      - targets: ["victoriametrics:8428"]
+        labels:
+          service: "victoriametrics"
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # OpenTelemetry Collector metrics
+  - job_name: "otel-collector"
+    static_configs:
+      - targets: ["otel-collector:8888"]
+        labels:
+          service: "otel-collector"
+    metrics_path: /metrics
+    scrape_interval: 15s

@@ -100,9 +100,10 @@ func main() {
 	metrics.Get("/query", queryMetrics)
 	metrics.Get("/query_range", queryMetricsRange)
 
-	// Alerts routes (placeholder for Phase 3)
+	// Alerts routes (Phase 3)
 	alerts := v1.Group("/alerts")
 	alerts.Get("/", listAlerts)
+	alerts.Post("/webhook", alertWebhook)
 	alerts.Post("/acknowledge/:id", acknowledgeAlert)
 
 	// AI routes (placeholder for Phase 5)

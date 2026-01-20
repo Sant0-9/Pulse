@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -195,19 +196,126 @@ func queryMetricsRange(c *fiber.Ctx) error {
 
 // Alert handlers (Phase 3)
 
-func listAlerts(c *fiber.Ctx) error {
+// AlertmanagerWebhook represents the incoming alert payload from Alertmanager
+type AlertmanagerWebhook struct {
+	Version           string  `json:"version"`
+	GroupKey          string  `json:"groupKey"`
+	TruncatedAlerts   int     `json:"truncatedAlerts"`
+	Status            string  `json:"status"`
+	Receiver          string  `json:"receiver"`
+	GroupLabels       Labels  `json:"groupLabels"`
+	CommonLabels      Labels  `json:"commonLabels"`
+	CommonAnnotations Labels  `json:"commonAnnotations"`
+	ExternalURL       string  `json:"externalURL"`
+	Alerts            []Alert `json:"alerts"`
+}
+
+// Labels is a map of label key-value pairs
+type Labels map[string]string
+
+// Alert represents a single alert from Alertmanager
+type Alert struct {
+	Status       string    `json:"status"`
+	Labels       Labels    `json:"labels"`
+	Annotations  Labels    `json:"annotations"`
+	StartsAt     time.Time `json:"startsAt"`
+	EndsAt       time.Time `json:"endsAt"`
+	GeneratorURL string    `json:"generatorURL"`
+	Fingerprint  string    `json:"fingerprint"`
+}
+
+// In-memory alert storage (would be Redis/Postgres in production)
+var (
+	alertStore      = make(map[string]Alert)
+	alertStoreMutex = &sync.RWMutex{}
+)
+
+// alertWebhook receives alerts from Alertmanager
+func alertWebhook(c *fiber.Ctx) error {
+	var webhook AlertmanagerWebhook
+	if err := c.BodyParser(&webhook); err != nil {
+		slog.Error("Failed to parse alert webhook", "error", err)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid webhook payload",
+		})
+	}
+
+	alertStoreMutex.Lock()
+	for _, alert := range webhook.Alerts {
+		if alert.Status == "resolved" {
+			// Remove resolved alerts from store
+			delete(alertStore, alert.Fingerprint)
+			slog.Info("Alert resolved",
+				"alertname", alert.Labels["alertname"],
+				"fingerprint", alert.Fingerprint,
+			)
+		} else {
+			alertStore[alert.Fingerprint] = alert
+			slog.Info("Alert received",
+				"alertname", alert.Labels["alertname"],
+				"status", alert.Status,
+				"severity", alert.Labels["severity"],
+				"fingerprint", alert.Fingerprint,
+			)
+		}
+	}
+	alertStoreMutex.Unlock()
+
 	return c.JSON(fiber.Map{
-		"alerts": []fiber.Map{},
-		"total":  0,
-		"note":   "Alerting not yet implemented (Phase 3)",
+		"status":   "received",
+		"received": len(webhook.Alerts),
+	})
+}
+
+func listAlerts(c *fiber.Ctx) error {
+	alertStoreMutex.RLock()
+	defer alertStoreMutex.RUnlock()
+
+	alerts := make([]fiber.Map, 0, len(alertStore))
+	firingCount := 0
+
+	for _, alert := range alertStore {
+		firingCount++
+		alerts = append(alerts, fiber.Map{
+			"fingerprint": alert.Fingerprint,
+			"status":      alert.Status,
+			"labels":      alert.Labels,
+			"annotations": alert.Annotations,
+			"startsAt":    alert.StartsAt,
+			"endsAt":      alert.EndsAt,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"alerts": alerts,
+		"total":  len(alertStore),
+		"firing": firingCount,
 	})
 }
 
 func acknowledgeAlert(c *fiber.Ctx) error {
 	alertID := c.Params("id")
-	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
-		"error":    "Alerting not yet implemented (Phase 3)",
+
+	alertStoreMutex.RLock()
+	alert, exists := alertStore[alertID]
+	alertStoreMutex.RUnlock()
+
+	if !exists {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":    "Alert not found",
+			"alert_id": alertID,
+		})
+	}
+
+	slog.Info("Alert acknowledged",
+		"alert_id", alertID,
+		"alertname", alert.Labels["alertname"],
+	)
+
+	return c.JSON(fiber.Map{
+		"message":  "Alert acknowledged",
 		"alert_id": alertID,
+		"status":   "acknowledged",
 	})
 }
 

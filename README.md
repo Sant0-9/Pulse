@@ -14,8 +14,8 @@ Simulates and monitors high-performance computing clusters with GPU telemetry, j
 
 ```bash
 # Clone the repo
-git clone git@github.com:Sant0-9/Nexus.git
-cd Nexus
+git clone git@github.com:Sant0-9/Pulse.git
+cd Pulse
 
 # Run the setup script
 ./scripts/setup.sh
@@ -32,6 +32,7 @@ docker compose up -d
 | Prometheus | http://localhost:9090 | - |
 | API Gateway | http://localhost:8081 | - |
 | Node Simulator | http://localhost:8082/metrics | - |
+| Job Scheduler | http://localhost:8083 | - |
 
 ## Architecture
 
@@ -62,6 +63,7 @@ docker compose up -d
 |-----------|------------|
 | Node Simulator | Go + Prometheus client |
 | API Gateway | Go + Fiber |
+| Job Scheduler | Python + FastAPI |
 | Metrics | Prometheus |
 | Visualization | Grafana |
 | Cache | Redis |
@@ -82,6 +84,17 @@ docker compose up -d
 - `pulse_cpu_utilization` - CPU utilization percentage
 - `pulse_memory_utilization` - Memory utilization percentage
 
+### Job Scheduler Metrics (SLURM-compatible)
+
+- `slurm_queue_pending` - Number of pending jobs
+- `slurm_queue_running` - Number of running jobs
+- `slurm_jobs_submitted_total` - Total jobs submitted
+- `slurm_jobs_completed_total` - Total jobs completed
+- `slurm_jobs_failed_total` - Total jobs failed
+- `slurm_partition_cpus_total` - Total CPUs per partition
+- `slurm_partition_gpus_total` - Total GPUs per partition
+- `slurm_job_wait_time_seconds` - Job wait time histogram
+
 ## API Endpoints
 
 ### Cluster Management
@@ -93,7 +106,20 @@ POST /api/v1/cluster/nodes/:id/drain   # Drain node
 POST /api/v1/cluster/nodes/:id/resume  # Resume node
 ```
 
+### Job Scheduling
+
+```
+GET  /api/v1/jobs              # List all jobs
+POST /api/v1/jobs              # Submit a new job
+GET  /api/v1/jobs/:id          # Get job details
+DELETE /api/v1/jobs/:id        # Cancel a job
+GET  /api/v1/partitions        # List partitions
+GET  /api/v1/partitions/:name  # Get partition details
+POST /api/v1/demo/generate-jobs # Generate demo workload
+```
+
 ### Health & Metrics
+
 ```
 GET  /health    # Service health check
 GET  /metrics   # Prometheus metrics
@@ -137,13 +163,17 @@ pulse/
 ├── docker-compose.yml          # Container orchestration
 ├── services/
 │   ├── node-simulator/         # Go - HPC node simulation
-│   └── api-gateway/            # Go - REST API
+│   ├── api-gateway/            # Go - REST API
+│   └── job-scheduler/          # Python - SLURM-compatible scheduler
 ├── grafana/
 │   ├── provisioning/           # Auto-configuration
 │   └── dashboards/             # Pre-built dashboards
+│       ├── cluster-overview.json
+│       ├── gpu-performance.json
+│       └── job-analytics.json
 ├── prometheus/
 │   └── prometheus.yml          # Scrape configuration
-├── web/                        # React dashboard
+├── web/                        # React dashboard (Phase 4)
 └── scripts/
     └── setup.sh                # One-command setup
 ```
@@ -151,7 +181,7 @@ pulse/
 ## Roadmap
 
 - [x] Foundation: Prometheus, Grafana, Node Simulator, API Gateway
-- [ ] Job Scheduler with SLURM-compatible metrics
+- [x] Job Scheduler with SLURM-compatible metrics and Grafana dashboards
 - [ ] OpenTelemetry integration, VictoriaMetrics, Alerting
 - [ ] React Dashboard for fleet management
 - [ ] LLM-powered operations assistant

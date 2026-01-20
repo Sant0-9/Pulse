@@ -1,0 +1,134 @@
+# OpenTelemetry Collector Configuration
+# Pulse HPC Cluster Observability Platform
+# Phase 3: Observability Excellence
+
+receivers:
+  # OTLP receiver for future push-based telemetry
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Prometheus receiver - scrapes existing Prometheus endpoints
+  # This allows OTel to act as an aggregation layer
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: "otel-collector"
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["localhost:8888"]
+
+        - job_name: "node-simulator"
+          scrape_interval: 5s
+          static_configs:
+            - targets: ["node-simulator:8082"]
+              labels:
+                service: "node-simulator"
+
+        - job_name: "job-scheduler"
+          scrape_interval: 5s
+          static_configs:
+            - targets: ["job-scheduler:8083"]
+              labels:
+                service: "job-scheduler"
+
+        - job_name: "api-gateway"
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["api-gateway:8081"]
+              labels:
+                service: "api-gateway"
+
+processors:
+  # Batch processor for efficient export
+  batch:
+    send_batch_size: 10000
+    send_batch_max_size: 11000
+    timeout: 10s
+
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  # Resource processor to add metadata
+  resource:
+    attributes:
+      - key: cluster
+        value: pulse-demo
+        action: upsert
+      - key: environment
+        value: development
+        action: upsert
+      - key: collector
+        value: otel-collector
+        action: upsert
+
+  # Attributes processor for metric enrichment
+  attributes:
+    actions:
+      - key: collected_by
+        value: otel-collector
+        action: insert
+
+extensions:
+  # Health check endpoint
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  # Performance profiler
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+  # zPages for debugging
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+exporters:
+  # Debug exporter for troubleshooting
+  debug:
+    verbosity: basic
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+  # Prometheus exporter - exposes metrics for Prometheus to scrape
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: otel
+    send_timestamps: true
+    metric_expiration: 5m
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  # OTLP HTTP exporter to VictoriaMetrics
+  # VictoriaMetrics supports OTLP ingestion natively
+  otlphttp:
+    endpoint: http://victoriametrics:8428/opentelemetry
+    tls:
+      insecure: true
+
+service:
+  extensions: [health_check, pprof, zpages]
+
+  pipelines:
+    # Metrics pipeline
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, batch, resource]
+      exporters: [prometheus, otlphttp, debug]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: "0.0.0.0"
+                port: 8888

@@ -1,6 +1,7 @@
 apiVersion: 1
 
 datasources:
+  # Primary datasource: Prometheus (short-term, 15-day retention)
   - name: Prometheus
     type: prometheus
     access: proxy
@@ -10,3 +11,29 @@ datasources:
     jsonData:
       timeInterval: "5s"
       httpMethod: POST
+    uid: prometheus
+
+  # Secondary datasource: VictoriaMetrics (long-term, 1-year retention)
+  - name: VictoriaMetrics
+    type: prometheus
+    access: proxy
+    url: http://victoriametrics:8428
+    isDefault: false
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST
+      # VictoriaMetrics-specific settings
+      customQueryParameters: "extra_label=source=victoriametrics"
+    uid: victoriametrics
+
+  # Alertmanager datasource for alert history
+  - name: Alertmanager
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    isDefault: false
+    editable: false
+    jsonData:
+      implementation: prometheus
+    uid: alertmanager

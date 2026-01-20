@@ -1,0 +1,101 @@
+# Alertmanager Configuration
+# Pulse HPC Cluster Observability Platform
+# Phase 3: Observability Excellence
+
+global:
+  # Resolve timeout - how long to wait before declaring an alert resolved
+  resolve_timeout: 5m
+
+  # SMTP settings (disabled for demo - would be configured for production)
+  # smtp_smarthost: 'smtp.example.com:587'
+  # smtp_from: 'alertmanager@pulse.local'
+  # smtp_auth_username: 'alertmanager'
+  # smtp_auth_password: 'password'
+
+# Route tree for alert routing
+route:
+  # Default receiver
+  receiver: 'webhook-notifications'
+
+  # Group alerts by these labels
+  group_by: ['alertname', 'severity', 'node', 'partition']
+
+  # Wait time before sending first notification for a group
+  group_wait: 30s
+
+  # Wait time before sending notification about new alerts in group
+  group_interval: 5m
+
+  # Wait time before re-sending notification
+  repeat_interval: 4h
+
+  # Child routes for specific alert handling
+  routes:
+    # Critical alerts - send immediately
+    - match:
+        severity: critical
+      receiver: 'webhook-notifications'
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: true
+
+    # GPU-related alerts
+    - match_re:
+        alertname: ^GPU.*
+      receiver: 'webhook-notifications'
+      group_by: ['alertname', 'node', 'gpu_index']
+      group_wait: 15s
+
+    # Job-related alerts
+    - match_re:
+        alertname: ^(Job|SLURM|Queue).*
+      receiver: 'webhook-notifications'
+      group_by: ['alertname', 'partition']
+      group_wait: 1m
+
+    # Node health alerts
+    - match_re:
+        alertname: ^Node.*
+      receiver: 'webhook-notifications'
+      group_by: ['alertname', 'node', 'node_type']
+
+# Inhibition rules - prevent redundant alerts
+inhibit_rules:
+  # If node is down, don't alert on GPU issues for that node
+  - source_match:
+      alertname: NodeDown
+    target_match_re:
+      alertname: ^GPU.*
+    equal: ['node']
+
+  # If cluster is degraded, don't alert on individual node issues
+  - source_match:
+      alertname: ClusterDegraded
+    target_match_re:
+      alertname: ^(Node|GPU).*
+    equal: ['cluster']
+
+  # Critical severity inhibits warning for same alert
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: ['alertname', 'node']
+
+# Receivers - notification endpoints
+receivers:
+  # Webhook receiver for demo/integration
+  - name: 'webhook-notifications'
+    webhook_configs:
+      - url: 'http://api-gateway:8081/api/v1/alerts/webhook'
+        send_resolved: true
+        max_alerts: 10
+        http_config:
+          follow_redirects: true
+
+  # Null receiver for silencing
+  - name: 'null'
+
+# Templates for notification formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

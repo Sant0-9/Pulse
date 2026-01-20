@@ -1,0 +1,291 @@
+# Prometheus Alert Rules
+# Pulse HPC Cluster Observability Platform
+# Phase 3: Observability Excellence
+
+groups:
+  # =============================================================================
+  # GPU ALERTS
+  # =============================================================================
+  - name: gpu_alerts
+    interval: 15s
+    rules:
+      # GPU Temperature Warning (>75C)
+      - alert: GPUTemperatureWarning
+        expr: dcgm_gpu_temp > 75
+        for: 2m
+        labels:
+          severity: warning
+          category: hardware
+        annotations:
+          summary: "GPU temperature elevated on {{ $labels.node }}"
+          description: "GPU {{ $labels.gpu_index }} ({{ $labels.gpu_model }}) on node {{ $labels.node }} is at {{ $value | printf \"%.1f\" }}C (threshold: 75C)"
+          runbook_url: "https://docs.pulse.local/runbooks/gpu-temperature"
+
+      # GPU Temperature Critical (>80C - throttling threshold)
+      - alert: GPUTemperatureCritical
+        expr: dcgm_gpu_temp > 80
+        for: 1m
+        labels:
+          severity: critical
+          category: hardware
+        annotations:
+          summary: "GPU temperature critical on {{ $labels.node }} - throttling likely"
+          description: "GPU {{ $labels.gpu_index }} ({{ $labels.gpu_model }}) on node {{ $labels.node }} is at {{ $value | printf \"%.1f\" }}C. Thermal throttling is active above 80C."
+          runbook_url: "https://docs.pulse.local/runbooks/gpu-temperature-critical"
+
+      # GPU Memory Exhaustion Warning (>85%)
+      - alert: GPUMemoryWarning
+        expr: (dcgm_memory_used / dcgm_memory_total) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: resource
+        annotations:
+          summary: "GPU memory high on {{ $labels.node }}"
+          description: "GPU {{ $labels.gpu_index }} on node {{ $labels.node }} memory usage is {{ $value | printf \"%.1f\" }}%. Jobs may fail if memory is exhausted."
+
+      # GPU Memory Critical (>95%)
+      - alert: GPUMemoryCritical
+        expr: (dcgm_memory_used / dcgm_memory_total) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: resource
+        annotations:
+          summary: "GPU memory near exhaustion on {{ $labels.node }}"
+          description: "GPU {{ $labels.gpu_index }} on node {{ $labels.node }} memory usage is {{ $value | printf \"%.1f\" }}%. OOM errors imminent."
+
+      # GPU ECC Errors Detected
+      - alert: GPUECCErrors
+        expr: increase(dcgm_ecc_sbe_count[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          category: hardware
+        annotations:
+          summary: "ECC errors detected on GPU {{ $labels.gpu_index }} on {{ $labels.node }}"
+          description: "{{ $value }} single-bit ECC errors detected in the last 5 minutes. This may indicate memory degradation."
+          runbook_url: "https://docs.pulse.local/runbooks/gpu-ecc-errors"
+
+      # GPU Utilization Low (potential idle resources)
+      - alert: GPUUnderutilized
+        expr: avg_over_time(dcgm_gpu_utilization[30m]) < 10 and on(node) pulse_node_up == 1
+        for: 30m
+        labels:
+          severity: info
+          category: efficiency
+        annotations:
+          summary: "GPU {{ $labels.gpu_index }} on {{ $labels.node }} is underutilized"
+          description: "GPU has averaged {{ $value | printf \"%.1f\" }}% utilization over 30 minutes. Consider reassigning workloads."
+
+      # GPU Power Usage Anomaly (>90% of max)
+      - alert: GPUPowerHigh
+        expr: dcgm_power_usage > 350
+        for: 5m
+        labels:
+          severity: warning
+          category: hardware
+        annotations:
+          summary: "GPU power consumption high on {{ $labels.node }}"
+          description: "GPU {{ $labels.gpu_index }} ({{ $labels.gpu_model }}) is drawing {{ $value | printf \"%.0f\" }}W"
+
+  # =============================================================================
+  # NODE ALERTS
+  # =============================================================================
+  - name: node_alerts
+    interval: 15s
+    rules:
+      # Node Down
+      - alert: NodeDown
+        expr: pulse_node_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Node {{ $labels.node }} is down"
+          description: "Node {{ $labels.node }} ({{ $labels.node_type }}) has been unreachable for more than 1 minute."
+          runbook_url: "https://docs.pulse.local/runbooks/node-down"
+
+      # Node CPU High
+      - alert: NodeCPUHigh
+        expr: pulse_cpu_utilization > 90
+        for: 10m
+        labels:
+          severity: warning
+          category: resource
+        annotations:
+          summary: "High CPU utilization on {{ $labels.node }}"
+          description: "Node {{ $labels.node }} CPU usage is {{ $value | printf \"%.1f\" }}% for 10+ minutes."
+
+      # Node Memory Pressure
+      - alert: NodeMemoryPressure
+        expr: pulse_memory_utilization > 90
+        for: 5m
+        labels:
+          severity: warning
+          category: resource
+        annotations:
+          summary: "Memory pressure on {{ $labels.node }}"
+          description: "Node {{ $labels.node }} memory usage is {{ $value | printf \"%.1f\" }}%."
+
+      # Node Memory Critical
+      - alert: NodeMemoryCritical
+        expr: pulse_memory_utilization > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: resource
+        annotations:
+          summary: "Critical memory on {{ $labels.node }}"
+          description: "Node {{ $labels.node }} memory usage is {{ $value | printf \"%.1f\" }}%. OOM killer may be triggered."
+
+  # =============================================================================
+  # JOB SCHEDULER ALERTS
+  # =============================================================================
+  - name: job_alerts
+    interval: 30s
+    rules:
+      # Job Queue Backlog
+      - alert: JobQueueBacklog
+        expr: slurm_queue_pending > 50
+        for: 15m
+        labels:
+          severity: warning
+          category: scheduler
+        annotations:
+          summary: "Large job queue backlog"
+          description: "{{ $value }} jobs pending in queue for 15+ minutes. Consider scaling resources or reviewing job priorities."
+
+      # Job Queue Critical Backlog
+      - alert: JobQueueCriticalBacklog
+        expr: slurm_queue_pending > 100
+        for: 10m
+        labels:
+          severity: critical
+          category: scheduler
+        annotations:
+          summary: "Critical job queue backlog"
+          description: "{{ $value }} jobs pending. Scheduler may need intervention."
+
+      # High Job Failure Rate
+      - alert: JobFailureRateHigh
+        expr: rate(slurm_jobs_failed_total[15m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          category: scheduler
+        annotations:
+          summary: "Elevated job failure rate"
+          description: "Job failure rate is {{ $value | printf \"%.2f\" }}/s over the last 15 minutes."
+
+      # Job Timeout Spike
+      - alert: JobTimeoutSpike
+        expr: increase(slurm_jobs_timeout_total[30m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: scheduler
+        annotations:
+          summary: "Multiple job timeouts detected"
+          description: "{{ $value | printf \"%.0f\" }} jobs have timed out in the last 30 minutes."
+
+      # Partition Resource Exhaustion
+      - alert: PartitionResourcesExhausted
+        expr: (slurm_partition_cpus_allocated / slurm_partition_cpus_total) > 0.95
+        for: 10m
+        labels:
+          severity: warning
+          category: scheduler
+        annotations:
+          summary: "Partition {{ $labels.partition }} resources nearly exhausted"
+          description: "Partition {{ $labels.partition }} is at {{ $value | printf \"%.1f\" }}% CPU allocation."
+
+      # No Running Jobs (potential scheduler issue)
+      - alert: NoRunningJobs
+        expr: slurm_queue_running == 0 and slurm_queue_pending > 0
+        for: 15m
+        labels:
+          severity: warning
+          category: scheduler
+        annotations:
+          summary: "No jobs running despite pending queue"
+          description: "{{ $value }} jobs pending but none running. Check scheduler health and resource availability."
+
+  # =============================================================================
+  # CLUSTER-LEVEL ALERTS
+  # =============================================================================
+  - name: cluster_alerts
+    interval: 30s
+    rules:
+      # Cluster Degraded (multiple nodes down)
+      - alert: ClusterDegraded
+        expr: count(pulse_node_up == 0) > 1
+        for: 2m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Cluster is degraded"
+          description: "{{ $value }} nodes are down. Cluster capacity is reduced."
+
+      # Cluster GPU Capacity Low
+      - alert: ClusterGPUCapacityLow
+        expr: (sum(slurm_gpus_allocated) / sum(slurm_gpus_total)) > 0.9
+        for: 30m
+        labels:
+          severity: info
+          category: capacity
+        annotations:
+          summary: "Cluster GPU capacity running low"
+          description: "{{ $value | printf \"%.1f\" }}% of cluster GPUs are allocated."
+
+      # Cluster CPU Capacity Low
+      - alert: ClusterCPUCapacityLow
+        expr: (sum(slurm_cpus_allocated) / sum(slurm_cpus_total)) > 0.9
+        for: 30m
+        labels:
+          severity: info
+          category: capacity
+        annotations:
+          summary: "Cluster CPU capacity running low"
+          description: "{{ $value | printf \"%.1f\" }}% of cluster CPUs are allocated."
+
+  # =============================================================================
+  # INFRASTRUCTURE ALERTS
+  # =============================================================================
+  - name: infrastructure_alerts
+    interval: 30s
+    rules:
+      # Prometheus Target Down
+      - alert: PrometheusTargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: warning
+          category: monitoring
+        annotations:
+          summary: "Prometheus target {{ $labels.job }} is down"
+          description: "Target {{ $labels.instance }} in job {{ $labels.job }} has been down for 2+ minutes."
+
+      # High Cardinality Warning
+      - alert: HighMetricCardinality
+        expr: prometheus_tsdb_head_series > 100000
+        for: 5m
+        labels:
+          severity: warning
+          category: monitoring
+        annotations:
+          summary: "High metric cardinality"
+          description: "Prometheus has {{ $value }} active time series. This may impact performance."
+
+      # Prometheus Storage Warning
+      - alert: PrometheusStorageWarning
+        expr: (prometheus_tsdb_storage_blocks_bytes / 1073741824) > 50
+        for: 5m
+        labels:
+          severity: warning
+          category: monitoring
+        annotations:
+          summary: "Prometheus storage high"
+          description: "Prometheus is using {{ $value | printf \"%.1f\" }}GB of storage."

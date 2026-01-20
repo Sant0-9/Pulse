@@ -1,0 +1,53 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: "pulse-demo"
+    environment: "development"
+
+# Alertmanager configuration (to be added in Phase 3)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# Rule files (to be added in Phase 3)
+# rule_files:
+#   - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          service: "prometheus"
+
+  # Node Simulator - exposes GPU and CPU metrics
+  - job_name: "node-simulator"
+    static_configs:
+      - targets: ["node-simulator:8082"]
+        labels:
+          service: "node-simulator"
+    metrics_path: /metrics
+    scrape_interval: 5s  # More frequent for demo purposes
+
+  # API Gateway metrics
+  - job_name: "api-gateway"
+    static_configs:
+      - targets: ["api-gateway:8081"]
+        labels:
+          service: "api-gateway"
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Redis metrics (using redis_exporter if added later)
+  # - job_name: "redis"
+  #   static_configs:
+  #     - targets: ["redis-exporter:9121"]
+
+  # PostgreSQL metrics (using postgres_exporter if added later)
+  # - job_name: "postgres"
+  #   static_configs:
+  #     - targets: ["postgres-exporter:9187"]

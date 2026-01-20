@@ -42,6 +42,15 @@ scrape_configs:
     metrics_path: /metrics
     scrape_interval: 15s
 
+  # Job Scheduler - SLURM-compatible workload management
+  - job_name: "job-scheduler"
+    static_configs:
+      - targets: ["job-scheduler:8083"]
+        labels:
+          service: "job-scheduler"
+    metrics_path: /metrics
+    scrape_interval: 5s  # Frequent for job state changes
+
   # Redis metrics (using redis_exporter if added later)
   # - job_name: "redis"
   #   static_configs:

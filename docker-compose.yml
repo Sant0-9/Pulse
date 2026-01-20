@@ -114,6 +114,25 @@ services:
       timeout: 10s
       retries: 3
 
+  job-scheduler:
+    build:
+      context: ./services/job-scheduler
+      dockerfile: Dockerfile
+    container_name: pulse-job-scheduler
+    ports:
+      - "8083:8083"
+    environment:
+      - PORT=8083
+      - HOST=0.0.0.0
+    restart: unless-stopped
+    networks:
+      - pulse-network
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   api-gateway:
     build:
       context: ./services/api-gateway
@@ -126,6 +145,7 @@ services:
       - PROMETHEUS_URL=http://prometheus:9090
       - REDIS_URL=redis://redis:6379
       - POSTGRES_URL=postgres://pulse:pulse-secret@postgres:5432/pulse?sslmode=disable
+      - JOB_SCHEDULER_URL=http://job-scheduler:8083
     restart: unless-stopped
     networks:
       - pulse-network
@@ -133,6 +153,7 @@ services:
       - prometheus
       - redis
       - postgres
+      - job-scheduler
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health"]
       interval: 30s

@@ -1,8 +1,26 @@
 package main
 
 import (
+	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 )
+
+// Job Scheduler proxy configuration
+var jobSchedulerURL string
+var httpClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
+
+func initJobSchedulerProxy(url string) {
+	jobSchedulerURL = strings.TrimSuffix(url, "/")
+	slog.Info("Job scheduler proxy initialized", "url", jobSchedulerURL)
+}
 
 // Cluster handlers
 
@@ -71,34 +89,82 @@ func resumeNode(c *fiber.Ctx) error {
 	})
 }
 
-// Job handlers (Phase 2)
+// Job Scheduler Proxy Handlers
 
-func listJobs(c *fiber.Ctx) error {
-	return c.JSON(fiber.Map{
-		"jobs":  []fiber.Map{},
-		"total": 0,
-		"note":  "Job scheduler not yet implemented (Phase 2)",
-	})
+func proxyToJobScheduler(c *fiber.Ctx, method, path string) error {
+	url := fmt.Sprintf("%s%s", jobSchedulerURL, path)
+
+	// Add query string if present
+	if qs := c.Request().URI().QueryString(); len(qs) > 0 {
+		url = fmt.Sprintf("%s?%s", url, string(qs))
+	}
+
+	var body io.Reader
+	if len(c.Body()) > 0 {
+		body = strings.NewReader(string(c.Body()))
+	}
+
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		slog.Error("Failed to create proxy request", "error", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create proxy request",
+		})
+	}
+
+	// Copy headers
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		slog.Error("Job scheduler proxy error", "error", err, "url", url)
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+			"error": "Job scheduler unavailable",
+		})
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		slog.Error("Failed to read proxy response", "error", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to read response",
+		})
+	}
+
+	c.Set("Content-Type", "application/json")
+	return c.Status(resp.StatusCode).Send(respBody)
 }
 
-func createJob(c *fiber.Ctx) error {
-	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
-		"error": "Job scheduler not yet implemented (Phase 2)",
-	})
+func proxyListJobs(c *fiber.Ctx) error {
+	return proxyToJobScheduler(c, "GET", "/jobs")
 }
 
-func getJob(c *fiber.Ctx) error {
+func proxyCreateJob(c *fiber.Ctx) error {
+	return proxyToJobScheduler(c, "POST", "/jobs")
+}
+
+func proxyGetJob(c *fiber.Ctx) error {
 	jobID := c.Params("id")
-	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
-		"error":  "Job scheduler not yet implemented (Phase 2)",
-		"job_id": jobID,
-	})
+	return proxyToJobScheduler(c, "GET", fmt.Sprintf("/jobs/%s", jobID))
 }
 
-func cancelJob(c *fiber.Ctx) error {
-	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
-		"error": "Job scheduler not yet implemented (Phase 2)",
-	})
+func proxyCancelJob(c *fiber.Ctx) error {
+	jobID := c.Params("id")
+	return proxyToJobScheduler(c, "DELETE", fmt.Sprintf("/jobs/%s", jobID))
+}
+
+func proxyListPartitions(c *fiber.Ctx) error {
+	return proxyToJobScheduler(c, "GET", "/partitions")
+}
+
+func proxyGetPartition(c *fiber.Ctx) error {
+	name := c.Params("name")
+	return proxyToJobScheduler(c, "GET", fmt.Sprintf("/partitions/%s", name))
+}
+
+func proxyGenerateDemoJobs(c *fiber.Ctx) error {
+	return proxyToJobScheduler(c, "POST", "/demo/generate-jobs")
 }
 
 // Metrics handlers

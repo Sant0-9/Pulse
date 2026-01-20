@@ -26,7 +26,11 @@ func main() {
 	slog.Info("Starting Pulse API Gateway",
 		"port", config.Port,
 		"prometheus_url", config.PrometheusURL,
+		"job_scheduler_url", config.JobSchedulerURL,
 	)
+
+	// Initialize job scheduler proxy
+	initJobSchedulerProxy(config.JobSchedulerURL)
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -76,12 +80,20 @@ func main() {
 	cluster.Post("/nodes/:id/drain", drainNode)
 	cluster.Post("/nodes/:id/resume", resumeNode)
 
-	// Jobs routes (placeholder for Phase 2)
+	// Jobs routes (proxied to job-scheduler)
 	jobs := v1.Group("/jobs")
-	jobs.Get("/", listJobs)
-	jobs.Post("/", createJob)
-	jobs.Get("/:id", getJob)
-	jobs.Delete("/:id", cancelJob)
+	jobs.Get("/", proxyListJobs)
+	jobs.Post("/", proxyCreateJob)
+	jobs.Get("/:id", proxyGetJob)
+	jobs.Delete("/:id", proxyCancelJob)
+
+	// Partitions routes (proxied to job-scheduler)
+	partitions := v1.Group("/partitions")
+	partitions.Get("/", proxyListPartitions)
+	partitions.Get("/:name", proxyGetPartition)
+
+	// Demo endpoint for job generation
+	v1.Post("/demo/generate-jobs", proxyGenerateDemoJobs)
 
 	// Metrics proxy routes
 	metrics := v1.Group("/metrics")
@@ -109,18 +121,20 @@ func main() {
 
 // Config holds application configuration
 type Config struct {
-	Port          string
-	PrometheusURL string
-	RedisURL      string
-	PostgresURL   string
+	Port            string
+	PrometheusURL   string
+	RedisURL        string
+	PostgresURL     string
+	JobSchedulerURL string
 }
 
 func loadConfig() Config {
 	return Config{
-		Port:          getEnv("PORT", "8081"),
-		PrometheusURL: getEnv("PROMETHEUS_URL", "http://localhost:9090"),
-		RedisURL:      getEnv("REDIS_URL", "redis://localhost:6379"),
-		PostgresURL:   getEnv("POSTGRES_URL", "postgres://pulse:pulse-secret@localhost:5432/pulse?sslmode=disable"),
+		Port:            getEnv("PORT", "8081"),
+		PrometheusURL:   getEnv("PROMETHEUS_URL", "http://localhost:9090"),
+		RedisURL:        getEnv("REDIS_URL", "redis://localhost:6379"),
+		PostgresURL:     getEnv("POSTGRES_URL", "postgres://pulse:pulse-secret@localhost:5432/pulse?sslmode=disable"),
+		JobSchedulerURL: getEnv("JOB_SCHEDULER_URL", "http://localhost:8083"),
 	}
 }
 

@@ -1,20 +1,21 @@
 # Pulse - HPC Cluster Observability Platform
 
-A production-grade HPC cluster monitoring and management platform demonstrating expertise in high-performance computing infrastructure, observability, and modern DevOps practices.
+Simulates and monitors high-performance computing clusters with GPU telemetry, job scheduling, and real-time dashboards.
 
 ## Features
 
 - **Cluster Simulation**: Realistic GPU (A100, H100) and CPU node simulation with DCGM-compatible metrics
 - **Real-time Observability**: Prometheus metrics with 5-second granularity
-- **Professional Dashboards**: Pre-configured Grafana dashboards for cluster monitoring
+- **Dashboards**: Pre-configured Grafana dashboards for cluster monitoring
 - **API Gateway**: RESTful API for cluster management and metrics queries
 - **Containerized**: Docker Compose for easy deployment
 
 ## Quick Start
 
 ```bash
-# Clone and navigate to the project
-cd pulse
+# Clone the repo
+git clone git@github.com:Sant0-9/Nexus.git
+cd Nexus
 
 # Run the setup script
 ./scripts/setup.sh
@@ -30,13 +31,13 @@ docker compose up -d
 | Grafana | http://localhost:3001 | admin / pulse-admin |
 | Prometheus | http://localhost:9090 | - |
 | API Gateway | http://localhost:8081 | - |
-| Node Simulator | http://localhost:8080/metrics | - |
+| Node Simulator | http://localhost:8082/metrics | - |
 
 ## Architecture
 
 ```
                     +------------------+
-                    |  React Dashboard |  (Phase 4)
+                    |  React Dashboard |
                     +--------+---------+
                              |
               +--------------+--------------+
@@ -44,7 +45,7 @@ docker compose up -d
      +--------v----+  +------v------+  +----v--------+
      |   Grafana   |  | API Gateway |  | AI Assistant|
      +------+------+  +------+------+  +-------------+
-            |                |               (Phase 5)
+            |                |
      +------v----------------v------+
      |         Prometheus           |
      +------+-----------------------+
@@ -101,9 +102,9 @@ GET  /metrics   # Prometheus metrics
 ## Development
 
 ### Prerequisites
-- Go 1.23+
+- Go 1.24+
 - Docker & Docker Compose
-- Node.js 20+ (for React dashboard - Phase 4)
+- Node.js 20+ (for React dashboard)
 
 ### Building Services
 
@@ -142,27 +143,19 @@ pulse/
 │   └── dashboards/             # Pre-built dashboards
 ├── prometheus/
 │   └── prometheus.yml          # Scrape configuration
-├── web/                        # React dashboard (Phase 4)
+├── web/                        # React dashboard
 └── scripts/
     └── setup.sh                # One-command setup
 ```
 
 ## Roadmap
 
-- [x] Phase 1: Foundation (Prometheus, Grafana, Node Simulator)
-- [ ] Phase 2: GPU simulation with DCGM metrics, Job Scheduler
-- [ ] Phase 3: OpenTelemetry, VictoriaMetrics, Alerting
-- [ ] Phase 4: React Dashboard
-- [ ] Phase 5: AI Operations Assistant
-- [ ] Phase 6: Security & Documentation
-
-## Skills Demonstrated
-
-- **Infrastructure Monitoring**: Prometheus, Grafana, OpenTelemetry
-- **HPC Domain Knowledge**: GPU metrics, SLURM concepts
-- **Backend Development**: Go, REST APIs
-- **DevOps**: Docker, container orchestration
-- **System Design**: Microservices architecture
+- [x] Foundation: Prometheus, Grafana, Node Simulator, API Gateway
+- [ ] Job Scheduler with SLURM-compatible metrics
+- [ ] OpenTelemetry integration, VictoriaMetrics, Alerting
+- [ ] React Dashboard for fleet management
+- [ ] LLM-powered operations assistant
+- [ ] Security hardening and documentation
 
 ## License
 

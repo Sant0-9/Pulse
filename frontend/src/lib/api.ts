@@ -93,3 +93,63 @@ export async function getAlerts(): Promise<{ alerts: Alert[]; total: number; fir
 export async function acknowledgeAlert(id: string): Promise<{ message: string }> {
   return fetchAPI(`/alerts/acknowledge/${id}`, { method: 'POST' })
 }
+
+// AI Assistant
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+  timestamp?: string
+}
+
+export interface ChatResponse {
+  message: string
+  conversation_id: string
+  context_used: string[]
+  model: string
+}
+
+export interface InvestigationResponse {
+  summary: string
+  probable_causes: string[]
+  recommendations: string[]
+  related_metrics: string[]
+  runbook_steps: string[]
+}
+
+export async function sendChatMessage(
+  message: string,
+  conversationId?: string,
+  includeContext: boolean = true
+): Promise<ChatResponse> {
+  return fetchAPI<ChatResponse>('/ai/chat', {
+    method: 'POST',
+    body: JSON.stringify({
+      message,
+      conversation_id: conversationId,
+      include_context: includeContext,
+    }),
+  })
+}
+
+export async function investigateAlert(
+  alertName: string,
+  node?: string,
+  severity?: string
+): Promise<InvestigationResponse> {
+  return fetchAPI<InvestigationResponse>('/ai/investigate', {
+    method: 'POST',
+    body: JSON.stringify({
+      alert_name: alertName,
+      node,
+      severity,
+    }),
+  })
+}
+
+export async function clearConversation(conversationId: string): Promise<{ message: string }> {
+  return fetchAPI(`/ai/conversations/${conversationId}`, { method: 'DELETE' })
+}
+
+export async function getAIHealth(): Promise<{ status: string; ollama_connected: boolean }> {
+  return fetchAPI('/ai/health')
+}

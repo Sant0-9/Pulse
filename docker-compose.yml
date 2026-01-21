@@ -233,6 +233,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - POSTGRES_URL=postgres://pulse:pulse-secret@postgres:5432/pulse?sslmode=disable
       - JOB_SCHEDULER_URL=http://job-scheduler:8083
+      - AI_ASSISTANT_URL=http://ai-assistant:8084
     restart: unless-stopped
     networks:
       - pulse-network
@@ -250,6 +251,66 @@ services:
       retries: 3
 
   # =============================================================================
+  # AI SERVICES
+  # =============================================================================
+
+  ollama:
+    image: ollama/ollama:0.9.0
+    container_name: pulse-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    restart: unless-stopped
+    networks:
+      - pulse-network
+    # GPU support - uncomment if NVIDIA GPU available
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  ai-assistant:
+    build:
+      context: ./services/ai-assistant
+      dockerfile: Dockerfile
+    container_name: pulse-ai-assistant
+    ports:
+      - "8084:8084"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8084
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=llama3.2:3b
+      - API_GATEWAY_URL=http://api-gateway:8081
+      - JOB_SCHEDULER_URL=http://job-scheduler:8083
+      - PROMETHEUS_URL=http://prometheus:9090
+    restart: unless-stopped
+    networks:
+      - pulse-network
+    depends_on:
+      - ollama
+      - api-gateway
+      - job-scheduler
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8084/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # =============================================================================
   # FRONTEND
   # =============================================================================
 
@@ -265,6 +326,7 @@ services:
       - pulse-network
     depends_on:
       - api-gateway
+      - ai-assistant
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
       interval: 30s
@@ -282,3 +344,4 @@ volumes:
   grafana_data:
   redis_data:
   postgres_data:
+  ollama_data:

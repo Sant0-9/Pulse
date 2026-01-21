@@ -27,10 +27,14 @@ func main() {
 		"port", config.Port,
 		"prometheus_url", config.PrometheusURL,
 		"job_scheduler_url", config.JobSchedulerURL,
+		"ai_assistant_url", config.AIAssistantURL,
 	)
 
 	// Initialize job scheduler proxy
 	initJobSchedulerProxy(config.JobSchedulerURL)
+
+	// Initialize AI assistant proxy
+	initAIAssistantProxy(config.AIAssistantURL)
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -106,11 +110,14 @@ func main() {
 	alerts.Post("/webhook", alertWebhook)
 	alerts.Post("/acknowledge/:id", acknowledgeAlert)
 
-	// AI routes (placeholder for Phase 5)
+	// AI routes (proxied to ai-assistant)
 	ai := v1.Group("/ai")
-	ai.Post("/chat", aiChat)
-	ai.Post("/investigate/:alert_id", aiInvestigate)
-	ai.Get("/recommendations", aiRecommendations)
+	ai.Get("/health", proxyAIHealth)
+	ai.Post("/chat", proxyAIChat)
+	ai.Post("/chat/stream", proxyAIChatStream)
+	ai.Post("/investigate", proxyAIInvestigate)
+	ai.Delete("/conversations/:id", proxyAIClearConversation)
+	ai.Get("/context", proxyAIContext)
 
 	// Start server
 	slog.Info("API Gateway starting", "addr", ":"+config.Port)
@@ -127,6 +134,7 @@ type Config struct {
 	RedisURL        string
 	PostgresURL     string
 	JobSchedulerURL string
+	AIAssistantURL  string
 }
 
 func loadConfig() Config {
@@ -136,6 +144,7 @@ func loadConfig() Config {
 		RedisURL:        getEnv("REDIS_URL", "redis://localhost:6379"),
 		PostgresURL:     getEnv("POSTGRES_URL", "postgres://pulse:pulse-secret@localhost:5432/pulse?sslmode=disable"),
 		JobSchedulerURL: getEnv("JOB_SCHEDULER_URL", "http://localhost:8083"),
+		AIAssistantURL:  getEnv("AI_ASSISTANT_URL", "http://localhost:8084"),
 	}
 }
 

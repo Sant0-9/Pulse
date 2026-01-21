@@ -12,15 +12,21 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// Job Scheduler proxy configuration
+// Service proxy configuration
 var jobSchedulerURL string
+var aiAssistantURL string
 var httpClient = &http.Client{
-	Timeout: 30 * time.Second,
+	Timeout: 120 * time.Second, // Longer timeout for AI requests
 }
 
 func initJobSchedulerProxy(url string) {
 	jobSchedulerURL = strings.TrimSuffix(url, "/")
 	slog.Info("Job scheduler proxy initialized", "url", jobSchedulerURL)
+}
+
+func initAIAssistantProxy(url string) {
+	aiAssistantURL = strings.TrimSuffix(url, "/")
+	slog.Info("AI assistant proxy initialized", "url", aiAssistantURL)
 }
 
 // Cluster handlers
@@ -319,25 +325,79 @@ func acknowledgeAlert(c *fiber.Ctx) error {
 	})
 }
 
-// AI handlers (Phase 5)
+// AI Assistant Proxy Handlers
 
-func aiChat(c *fiber.Ctx) error {
-	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
-		"error": "AI assistant not yet implemented (Phase 5)",
-	})
+func proxyToAIAssistant(c *fiber.Ctx, method, path string) error {
+	url := fmt.Sprintf("%s%s", aiAssistantURL, path)
+
+	// Add query string if present
+	if qs := c.Request().URI().QueryString(); len(qs) > 0 {
+		url = fmt.Sprintf("%s?%s", url, string(qs))
+	}
+
+	var body io.Reader
+	if len(c.Body()) > 0 {
+		body = strings.NewReader(string(c.Body()))
+	}
+
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		slog.Error("Failed to create AI proxy request", "error", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create proxy request",
+		})
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		slog.Error("AI assistant proxy error", "error", err, "url", url)
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+			"error": "AI assistant unavailable",
+		})
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		slog.Error("Failed to read AI proxy response", "error", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to read response",
+		})
+	}
+
+	// Copy response headers
+	for key, values := range resp.Header {
+		for _, value := range values {
+			c.Set(key, value)
+		}
+	}
+
+	return c.Status(resp.StatusCode).Send(respBody)
 }
 
-func aiInvestigate(c *fiber.Ctx) error {
-	alertID := c.Params("alert_id")
-	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
-		"error":    "AI assistant not yet implemented (Phase 5)",
-		"alert_id": alertID,
-	})
+func proxyAIHealth(c *fiber.Ctx) error {
+	return proxyToAIAssistant(c, "GET", "/api/v1/ai/health")
 }
 
-func aiRecommendations(c *fiber.Ctx) error {
-	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
-		"recommendations": []fiber.Map{},
-		"note":            "AI assistant not yet implemented (Phase 5)",
-	})
+func proxyAIChat(c *fiber.Ctx) error {
+	return proxyToAIAssistant(c, "POST", "/api/v1/ai/chat")
+}
+
+func proxyAIChatStream(c *fiber.Ctx) error {
+	return proxyToAIAssistant(c, "POST", "/api/v1/ai/chat/stream")
+}
+
+func proxyAIInvestigate(c *fiber.Ctx) error {
+	return proxyToAIAssistant(c, "POST", "/api/v1/ai/investigate")
+}
+
+func proxyAIClearConversation(c *fiber.Ctx) error {
+	conversationID := c.Params("id")
+	return proxyToAIAssistant(c, "DELETE", fmt.Sprintf("/api/v1/ai/conversations/%s", conversationID))
+}
+
+func proxyAIContext(c *fiber.Ctx) error {
+	return proxyToAIAssistant(c, "GET", "/api/v1/ai/context")
 }

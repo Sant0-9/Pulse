@@ -1,0 +1,22 @@
+# AI Assistant Service Dependencies
+# Verified 2026-01-20
+
+# Web framework
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+
+# Ollama integration
+ollama==0.6.1
+
+# HTTP client for internal API calls
+httpx==0.28.1
+
+# Data validation
+pydantic==2.11.4
+pydantic-settings==2.8.1
+
+# Async support
+anyio==4.9.0
+
+# Prometheus metrics
+prometheus-client==0.22.1

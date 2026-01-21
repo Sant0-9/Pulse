@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
@@ -57,6 +58,27 @@ func main() {
 		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
 		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
 	}))
+
+	// Rate limiting - 100 requests per minute per IP
+	app.Use(limiter.New(limiter.Config{
+		Max:        100,
+		Expiration: 1 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			slog.Warn("Rate limit exceeded", "ip", c.IP(), "path", c.Path())
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error":       "Rate limit exceeded",
+				"retry_after": "60s",
+			})
+		},
+		SkipSuccessfulRequests: false,
+		SkipFailedRequests:     false,
+	}))
+
+	// Input validation middleware
+	app.Use(InputValidationMiddleware)
 
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {

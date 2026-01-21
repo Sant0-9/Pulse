@@ -249,6 +249,28 @@ services:
       timeout: 10s
       retries: 3
 
+  # =============================================================================
+  # FRONTEND
+  # =============================================================================
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pulse-frontend
+    ports:
+      - "3002:80"
+    restart: unless-stopped
+    networks:
+      - pulse-network
+    depends_on:
+      - api-gateway
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 networks:
   pulse-network:
     driver: bridge

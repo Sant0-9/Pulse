@@ -3,7 +3,6 @@ import { Outlet } from 'react-router'
 import { MessageSquare } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { ChatPanel } from '@/components/chat/ChatPanel'
-import { Button } from '@/components/ui/Button'
 
 export function Layout() {
   const [isChatOpen, setIsChatOpen] = useState(false)

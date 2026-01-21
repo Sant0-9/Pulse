@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_client import make_asgi_app, Counter, Histogram
+from prometheus_client import make_asgi_app, Counter, Histogram, REGISTRY, CollectorRegistry
 
 from config import settings
 from api import router
@@ -20,19 +20,36 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Prometheus metrics
-CHAT_REQUESTS = Counter(
-    "ai_assistant_chat_requests_total",
+
+# Prometheus metrics - use getattr to avoid duplicate registration on reload
+def get_or_create_counter(name, description, labels):
+    """Get existing counter or create new one."""
+    for collector in REGISTRY._names_to_collectors.values():
+        if hasattr(collector, '_name') and collector._name == name:
+            return collector
+    return Counter(name, description, labels)
+
+
+def get_or_create_histogram(name, description, buckets):
+    """Get existing histogram or create new one."""
+    for collector in REGISTRY._names_to_collectors.values():
+        if hasattr(collector, '_name') and collector._name == name:
+            return collector
+    return Histogram(name, description, buckets=buckets)
+
+
+CHAT_REQUESTS = get_or_create_counter(
+    "ai_assistant_chat_requests",
     "Total chat requests",
     ["status"]
 )
-CHAT_LATENCY = Histogram(
+CHAT_LATENCY = get_or_create_histogram(
     "ai_assistant_chat_latency_seconds",
     "Chat request latency",
-    buckets=[0.5, 1, 2, 5, 10, 30, 60, 120]
+    [0.5, 1, 2, 5, 10, 30, 60, 120]
 )
-INVESTIGATION_REQUESTS = Counter(
-    "ai_assistant_investigation_requests_total",
+INVESTIGATION_REQUESTS = get_or_create_counter(
+    "ai_assistant_investigation_requests",
     "Total investigation requests",
     ["alert_name"]
 )

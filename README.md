@@ -34,7 +34,7 @@ docker compose up -d
 
 | Service | URL | Credentials |
 |---------|-----|-------------|
-| **Dashboard** | http://localhost:3002 | - |
+| **Dashboard** | http://localhost:3000 | - |
 | **Grafana** | http://localhost:3001 | admin / pulse-admin |
 | **Prometheus** | http://localhost:9090 | - |
 | **VictoriaMetrics** | http://localhost:8428 | - |
@@ -49,7 +49,7 @@ docker compose up -d
 ```
                         +------------------+
                         |  React Dashboard |
-                        |   (Port 3002)    |
+                        |   (Port 3000)    |
                         +--------+---------+
                                  |
               +------------------+------------------+

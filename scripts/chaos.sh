@@ -106,7 +106,7 @@ trigger_gpu_alert() {
         echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
 
         echo ""
-        echo -e "${YELLOW}Check alerts at: http://localhost:3002/alerts${NC}"
+        echo -e "${YELLOW}Check alerts at: http://localhost:3000/alerts${NC}"
         echo -e "${YELLOW}Check Alertmanager at: http://localhost:9093${NC}"
 
         echo ""
@@ -168,7 +168,7 @@ simulate_job_failures() {
 
     echo ""
     echo -e "${GREEN}Jobs submitted - they will transition through states${NC}"
-    echo -e "${YELLOW}Monitor at: http://localhost:3002/jobs${NC}"
+    echo -e "${YELLOW}Monitor at: http://localhost:3000/jobs${NC}"
 }
 
 create_queue_backlog() {
@@ -195,7 +195,7 @@ create_queue_backlog() {
     echo ""
     echo -e "${GREEN}Queue backlog created${NC}"
     echo -e "${YELLOW}This should trigger queue backlog alerts${NC}"
-    echo -e "${YELLOW}Monitor at: http://localhost:3002/jobs${NC}"
+    echo -e "${YELLOW}Monitor at: http://localhost:3000/jobs${NC}"
 }
 
 restart_service() {

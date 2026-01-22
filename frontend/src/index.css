@@ -1,23 +1,35 @@
 @import "tailwindcss";
 
 @theme {
+  /* Grafana-inspired color palette */
   --color-primary: #3b82f6;
   --color-primary-dark: #2563eb;
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-info: #06b6d4;
+  --color-success: #73bf69;
+  --color-warning: #f2cc0c;
+  --color-danger: #f2495c;
+  --color-info: #5794f2;
+  --color-purple: #b877d9;
+  --color-orange: #ff9830;
 
-  --color-background: #0f172a;
-  --color-surface: #1e293b;
-  --color-surface-hover: #334155;
-  --color-border: #334155;
+  /* Dark theme - Grafana style */
+  --color-background: #111217;
+  --color-surface: #181b1f;
+  --color-surface-secondary: #1f2229;
+  --color-surface-hover: #262932;
+  --color-border: #2c3039;
+  --color-border-light: #3d434d;
 
-  --color-text: #f8fafc;
-  --color-text-muted: #94a3b8;
+  /* Text colors */
+  --color-text: #d8d9da;
+  --color-text-muted: #8e8e8e;
+  --color-text-bright: #ffffff;
 
-  --font-family-sans: Inter, system-ui, -apple-system, sans-serif;
-  --font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  /* Typography */
+  --font-family-sans: Inter, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-family-mono: 'Roboto Mono', 'SF Mono', Monaco, monospace;
+
+  /* Spacing scale - consistent 8px grid */
+  --spacing-unit: 8px;
 }
 
 * {
@@ -28,34 +40,50 @@
 
 html {
   color-scheme: dark;
+  font-size: 14px;
 }
 
 body {
   font-family: var(--font-family-sans);
   background-color: var(--color-background);
   color: var(--color-text);
-  line-height: 1.6;
+  line-height: 1.5;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   min-height: 100vh;
 }
 
+/* Scrollbar styling - Grafana-like */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-surface);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
+}
+
+/* Selection styling */
+::selection {
+  background: var(--color-primary);
+  color: var(--color-text-bright);
+}
+
+/* Grafana-style focus ring */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }

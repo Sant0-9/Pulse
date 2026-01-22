@@ -14,7 +14,8 @@ export function formatBytes(bytes: number, decimals = 2): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
 }
 
-export function formatDuration(seconds: number): string {
+export function formatDuration(seconds: number | undefined | null): string {
+  if (seconds === undefined || seconds === null || isNaN(seconds)) return '-'
   if (seconds < 60) return `${seconds}s`
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
   const hours = Math.floor(seconds / 3600)

@@ -1,19 +1,20 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Layers, Plus, RefreshCw, X } from 'lucide-react'
+import { Layers, Plus, RefreshCw, X, Clock, CheckCircle } from 'lucide-react'
 import { getJobs, cancelJob, generateDemoJobs } from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { StatusBadge, Badge } from '@/components/ui/Badge'
+import { StatusBadge, Badge, StatusDot } from '@/components/ui/Badge'
+import { StatCard } from '@/components/ui/StatCard'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table'
 import { LoadingState, ErrorState } from '@/components/ui/Spinner'
 import { formatDuration } from '@/lib/utils'
 import type { Job } from '@/types'
 
-const stateFilters = ['all', 'pending', 'running', 'completed', 'failed', 'cancelled']
+const stateFilters = ['all', 'pending', 'running', 'completed', 'failed', 'cancelled'] as const
 
 export function Jobs() {
-  const [stateFilter, setStateFilter] = useState('all')
+  const [stateFilter, setStateFilter] = useState<string>('all')
   const queryClient = useQueryClient()
 
   const jobsQuery = useQuery({
@@ -44,28 +45,32 @@ export function Jobs() {
     return <ErrorState message="Failed to load jobs" />
   }
 
-  const { jobs, total, stats } = jobsQuery.data || { jobs: [], total: 0, stats: {} }
+  const data = jobsQuery.data || { jobs: [], total: 0, stats: {} }
+  const jobs = data.jobs || []
+  const total = data.total || 0
+  const stats = data.stats || {}
 
   return (
     <div className="space-y-6">
+      {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text">Job Queue</h1>
-          <p className="text-text-muted">
-            Manage scheduled and running jobs
-          </p>
+          <h1 className="text-xl font-semibold text-text-bright">Job Queue</h1>
+          <p className="text-sm text-text-muted mt-0.5">Manage scheduled and running jobs</p>
         </div>
         <div className="flex gap-2">
           <Button
             variant="secondary"
+            size="md"
             onClick={() => generateMutation.mutate()}
             disabled={generateMutation.isPending}
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 mr-1.5" />
             Generate Demo Jobs
           </Button>
           <Button
             variant="ghost"
+            size="md"
             onClick={() => jobsQuery.refetch()}
           >
             <RefreshCw className="w-4 h-4" />
@@ -73,47 +78,47 @@ export function Jobs() {
         </div>
       </div>
 
+      {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="text-center py-4">
-            <p className="text-2xl font-bold text-text">{total}</p>
-            <p className="text-sm text-text-muted">Total</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="text-center py-4">
-            <p className="text-2xl font-bold text-warning">{stats.pending || 0}</p>
-            <p className="text-sm text-text-muted">Pending</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="text-center py-4">
-            <p className="text-2xl font-bold text-success">{stats.running || 0}</p>
-            <p className="text-sm text-text-muted">Running</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="text-center py-4">
-            <p className="text-2xl font-bold text-primary">{stats.completed || 0}</p>
-            <p className="text-sm text-text-muted">Completed</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="text-center py-4">
-            <p className="text-2xl font-bold text-danger">{stats.failed || 0}</p>
-            <p className="text-sm text-text-muted">Failed</p>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Total Jobs"
+          value={total}
+          icon={Layers}
+          color="info"
+        />
+        <StatCard
+          title="Pending"
+          value={stats.pending || 0}
+          icon={Clock}
+          color="warning"
+        />
+        <StatCard
+          title="Running"
+          value={stats.running || 0}
+          color="success"
+        />
+        <StatCard
+          title="Completed"
+          value={stats.completed || 0}
+          icon={CheckCircle}
+          color="info"
+        />
+        <StatCard
+          title="Failed"
+          value={stats.failed || 0}
+          color="danger"
+        />
       </div>
 
+      {/* Jobs Table */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between w-full">
             <CardTitle className="flex items-center gap-2">
-              <Layers className="w-5 h-5" />
+              <Layers className="w-4 h-4 text-text-muted" />
               Jobs ({jobs.length})
             </CardTitle>
-            <div className="flex gap-2">
+            <div className="flex gap-1">
               {stateFilters.map((filter) => (
                 <Button
                   key={filter}
@@ -127,7 +132,7 @@ export function Jobs() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {jobs.length > 0 ? (
             <Table>
               <TableHeader>
@@ -146,9 +151,18 @@ export function Jobs() {
               <TableBody>
                 {jobs.map((job: Job) => (
                   <TableRow key={job.id}>
-                    <TableCell className="font-mono text-xs">{job.id.slice(0, 8)}</TableCell>
-                    <TableCell className="font-medium">{job.name}</TableCell>
-                    <TableCell>{job.user}</TableCell>
+                    <TableCell>
+                      <code className="text-xs bg-surface-secondary px-1.5 py-0.5 rounded">
+                        {job.id.slice(0, 8)}
+                      </code>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <StatusDot status={job.state} />
+                        <span className="font-medium">{job.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-text-muted">{job.user}</TableCell>
                     <TableCell>
                       <Badge>{job.partition}</Badge>
                     </TableCell>
@@ -156,20 +170,19 @@ export function Jobs() {
                       <StatusBadge status={job.state} />
                     </TableCell>
                     <TableCell>
-                      <span className="text-text-muted text-sm">
-                        {job.num_nodes}N / {job.num_gpus}G
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <p className="text-text">{formatDuration(job.elapsed_time)}</p>
-                        <p className="text-text-muted text-xs">
-                          / {formatDuration(job.time_limit)}
-                        </p>
+                      <div className="flex items-center gap-3 text-xs text-text-muted">
+                        <span>{job.num_nodes} nodes</span>
+                        <span>{job.num_gpus} GPUs</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="font-mono">{job.priority}</span>
+                      <div className="text-xs">
+                        <span className="text-text">{formatDuration(job.elapsed_time)}</span>
+                        <span className="text-text-muted"> / {formatDuration(job.time_limit)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-mono text-xs text-text-muted">{job.priority}</span>
                     </TableCell>
                     <TableCell>
                       {(job.state === 'pending' || job.state === 'running') && (
@@ -178,8 +191,9 @@ export function Jobs() {
                           size="sm"
                           onClick={() => cancelMutation.mutate(job.id)}
                           disabled={cancelMutation.isPending}
+                          title="Cancel job"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="w-3.5 h-3.5" />
                         </Button>
                       )}
                     </TableCell>
@@ -188,9 +202,12 @@ export function Jobs() {
               </TableBody>
             </Table>
           ) : (
-            <p className="text-text-muted text-center py-8">
-              No jobs found. Click "Generate Demo Jobs" to create sample jobs.
-            </p>
+            <div className="py-12 text-center">
+              <Layers className="w-10 h-10 text-text-muted mx-auto mb-3" />
+              <p className="text-sm text-text-muted">
+                No jobs found. Click "Generate Demo Jobs" to create sample jobs.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>

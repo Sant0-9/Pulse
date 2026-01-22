@@ -8,19 +8,23 @@ export function Layout() {
   const [isChatOpen, setIsChatOpen] = useState(false)
 
   return (
-    <div className="flex min-h-screen">
+    <div className="min-h-screen bg-background">
       <Sidebar />
-      <main className="flex-1 p-6 overflow-auto">
-        <Outlet />
+
+      {/* Main content area - offset by sidebar width */}
+      <main className="ml-56 min-h-screen">
+        <div className="p-6 max-w-[1800px]">
+          <Outlet />
+        </div>
       </main>
 
       {/* Chat toggle button */}
       <button
         onClick={() => setIsChatOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-primary hover:bg-primary/90 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105 z-40"
+        className="fixed bottom-5 right-5 w-12 h-12 bg-primary hover:bg-primary-dark text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105 z-40"
         title="Open AI Assistant"
       >
-        <MessageSquare className="w-6 h-6" />
+        <MessageSquare className="w-5 h-5" />
       </button>
 
       {/* Chat panel */}
@@ -29,7 +33,7 @@ export function Layout() {
       {/* Overlay when chat is open */}
       {isChatOpen && (
         <div
-          className="fixed inset-0 bg-black/20 z-40"
+          className="fixed inset-0 bg-black/30 z-40"
           onClick={() => setIsChatOpen(false)}
         />
       )}

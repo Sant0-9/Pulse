@@ -19,47 +19,55 @@ const navItems = [
 
 export function Sidebar() {
   return (
-    <aside className="w-64 bg-surface border-r border-border min-h-screen">
-      <div className="p-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary rounded-lg">
-            <Activity className="w-6 h-6 text-white" />
+    <aside className="w-56 flex-shrink-0 bg-surface border-r border-border h-screen flex flex-col fixed left-0 top-0 z-30">
+      {/* Logo */}
+      <div className="h-14 px-4 flex items-center border-b border-border">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
+            <Activity className="w-5 h-5 text-white" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-text">Pulse</h1>
-            <p className="text-xs text-text-muted">HPC Observability</p>
+          <div className="flex flex-col">
+            <span className="text-base font-semibold text-text-bright leading-tight">
+              Pulse
+            </span>
+            <span className="text-[10px] text-text-muted leading-tight">
+              HPC Observability
+            </span>
           </div>
         </div>
       </div>
 
-      <nav className="px-3">
+      {/* Navigation */}
+      <nav className="flex-1 py-2 px-2 overflow-y-auto">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors',
+                'flex items-center gap-3 px-3 py-2.5 rounded text-sm transition-colors',
+                'hover:bg-surface-hover',
                 isActive
-                  ? 'bg-primary text-white'
-                  : 'text-text-muted hover:text-text hover:bg-surface-hover'
+                  ? 'bg-surface-hover text-text-bright border-l-2 border-primary ml-0 pl-[10px]'
+                  : 'text-text-muted hover:text-text border-l-2 border-transparent'
               )
             }
           >
-            <item.icon className="w-5 h-5" />
+            <item.icon className="w-5 h-5 flex-shrink-0" />
             <span className="font-medium">{item.label}</span>
           </NavLink>
         ))}
       </nav>
 
-      <div className="absolute bottom-0 left-0 w-64 p-4 border-t border-border">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-            <span className="text-sm font-medium text-primary">A</span>
+      {/* Footer - User info */}
+      <div className="p-3 border-t border-border">
+        <div className="flex items-center gap-2.5 px-2 py-2 rounded hover:bg-surface-hover transition-colors cursor-pointer">
+          <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-semibold text-primary">A</span>
           </div>
-          <div>
-            <p className="text-sm font-medium text-text">Admin</p>
-            <p className="text-xs text-text-muted">admin@pulse.local</p>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-text truncate">Admin</p>
+            <p className="text-[11px] text-text-muted truncate">admin@pulse.local</p>
           </div>
         </div>
       </div>

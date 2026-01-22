@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Server, Cpu, Activity, Thermometer } from 'lucide-react'
+import { Server, Cpu, Activity, Thermometer, HardDrive } from 'lucide-react'
 import { getNodes, drainNode, resumeNode } from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { StatusBadge } from '@/components/ui/Badge'
+import { StatusBadge, StatusDot } from '@/components/ui/Badge'
+import { StatCard } from '@/components/ui/StatCard'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table'
 import { LoadingState, ErrorState } from '@/components/ui/Spinner'
 import { cn } from '@/lib/utils'
@@ -39,64 +40,60 @@ export function Nodes() {
     return <ErrorState message="Failed to load nodes" />
   }
 
-  const { nodes } = nodesQuery.data || { nodes: [] }
+  const data = nodesQuery.data || { nodes: [] }
+  const nodes = data.nodes || []
   const gpuNodes = nodes.filter((n) => n.type === 'gpu')
   const cpuNodes = nodes.filter((n) => n.type === 'cpu')
+  const onlineNodes = nodes.filter((n) => n.status === 'up').length
+  const totalGpus = gpuNodes.reduce((acc, n) => acc + (n.gpus?.length || 0), 0)
 
   return (
     <div className="space-y-6">
+      {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold text-text">Cluster Nodes</h1>
-        <p className="text-text-muted">
-          Manage and monitor compute nodes
-        </p>
+        <h1 className="text-xl font-semibold text-text-bright">Cluster Nodes</h1>
+        <p className="text-sm text-text-muted mt-0.5">Manage and monitor compute nodes</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="flex items-center gap-4">
-            <div className="p-3 bg-primary/10 rounded-lg">
-              <Server className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-text">{nodes.length}</p>
-              <p className="text-sm text-text-muted">Total Nodes</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4">
-            <div className="p-3 bg-success/10 rounded-lg">
-              <Activity className="w-6 h-6 text-success" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-text">
-                {nodes.filter((n) => n.status === 'up').length}
-              </p>
-              <p className="text-sm text-text-muted">Online</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4">
-            <div className="p-3 bg-info/10 rounded-lg">
-              <Cpu className="w-6 h-6 text-info" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-text">
-                {gpuNodes.reduce((acc, n) => acc + (n.gpus?.length || 0), 0)}
-              </p>
-              <p className="text-sm text-text-muted">Total GPUs</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Nodes"
+          value={nodes.length}
+          icon={Server}
+          color="info"
+        />
+        <StatCard
+          title="Online"
+          value={onlineNodes}
+          unit={`/ ${nodes.length}`}
+          icon={Activity}
+          color="success"
+          subtitle={`${nodes.length > 0 ? ((onlineNodes / nodes.length) * 100).toFixed(0) : 0}% available`}
+        />
+        <StatCard
+          title="GPU Nodes"
+          value={gpuNodes.length}
+          icon={Cpu}
+          color="purple"
+        />
+        <StatCard
+          title="Total GPUs"
+          value={totalGpus}
+          icon={HardDrive}
+          color="orange"
+        />
       </div>
 
+      {/* GPU Nodes Table */}
       <Card>
         <CardHeader>
-          <CardTitle>GPU Nodes</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Cpu className="w-4 h-4 text-text-muted" />
+            GPU Nodes ({gpuNodes.length})
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -111,7 +108,12 @@ export function Nodes() {
             <TableBody>
               {gpuNodes.map((node) => (
                 <TableRow key={node.id}>
-                  <TableCell className="font-medium">{node.id}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <StatusDot status={node.status} />
+                      <span className="font-medium">{node.id}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <StatusBadge status={node.status} />
                   </TableCell>
@@ -121,25 +123,49 @@ export function Nodes() {
                         <div
                           key={gpu.index}
                           className={cn(
-                            'w-6 h-6 rounded flex items-center justify-center text-xs',
+                            'w-7 h-7 rounded flex items-center justify-center text-xs font-medium',
                             gpu.utilization > 80
-                              ? 'bg-success/20 text-success'
+                              ? 'bg-success/20 text-success border border-success/30'
                               : gpu.utilization > 50
-                              ? 'bg-warning/20 text-warning'
-                              : 'bg-surface-hover text-text-muted'
+                              ? 'bg-warning/20 text-warning border border-warning/30'
+                              : 'bg-surface-secondary text-text-muted border border-border'
                           )}
-                          title={`GPU ${gpu.index}: ${gpu.utilization}%`}
+                          title={`GPU ${gpu.index}: ${gpu.utilization}% | ${gpu.temp}C`}
                         >
                           {gpu.index}
                         </div>
                       )) || '-'}
                     </div>
                   </TableCell>
-                  <TableCell>{node.cpu_utilization?.toFixed(1) || '-'}%</TableCell>
                   <TableCell>
-                    {node.memory_used_gb && node.memory_total_gb
-                      ? `${node.memory_used_gb}/${node.memory_total_gb} GB`
-                      : '-'}
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-1.5 bg-surface-secondary rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-info rounded-full"
+                          style={{ width: `${node.cpu_utilization || 0}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-text-muted w-10">
+                        {node.cpu_utilization?.toFixed(0) || 0}%
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {node.memory_used_gb && node.memory_total_gb ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-1.5 bg-surface-secondary rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-purple rounded-full"
+                            style={{ width: `${(node.memory_used_gb / node.memory_total_gb) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-text-muted">
+                          {node.memory_used_gb}/{node.memory_total_gb}G
+                        </span>
+                      </div>
+                    ) : (
+                      '-'
+                    )}
                   </TableCell>
                   <TableCell>
                     {node.status === 'up' ? (
@@ -153,7 +179,7 @@ export function Nodes() {
                       </Button>
                     ) : node.status === 'draining' ? (
                       <Button
-                        variant="secondary"
+                        variant="success"
                         size="sm"
                         onClick={() => resumeMutation.mutate(node.id)}
                         disabled={resumeMutation.isPending}
@@ -164,16 +190,27 @@ export function Nodes() {
                   </TableCell>
                 </TableRow>
               ))}
+              {gpuNodes.length === 0 && (
+                <TableRow>
+                  <TableCell className="text-center text-text-muted py-8" colSpan={6}>
+                    No GPU nodes available
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
+      {/* CPU Nodes Table */}
       <Card>
         <CardHeader>
-          <CardTitle>CPU Nodes</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Server className="w-4 h-4 text-text-muted" />
+            CPU Nodes ({cpuNodes.length})
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -187,15 +224,44 @@ export function Nodes() {
             <TableBody>
               {cpuNodes.map((node) => (
                 <TableRow key={node.id}>
-                  <TableCell className="font-medium">{node.id}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <StatusDot status={node.status} />
+                      <span className="font-medium">{node.id}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <StatusBadge status={node.status} />
                   </TableCell>
-                  <TableCell>{node.cpu_utilization?.toFixed(1) || '-'}%</TableCell>
                   <TableCell>
-                    {node.memory_used_gb && node.memory_total_gb
-                      ? `${node.memory_used_gb}/${node.memory_total_gb} GB`
-                      : '-'}
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-1.5 bg-surface-secondary rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-info rounded-full"
+                          style={{ width: `${node.cpu_utilization || 0}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-text-muted w-10">
+                        {node.cpu_utilization?.toFixed(0) || 0}%
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {node.memory_used_gb && node.memory_total_gb ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-1.5 bg-surface-secondary rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-purple rounded-full"
+                            style={{ width: `${(node.memory_used_gb / node.memory_total_gb) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-text-muted">
+                          {node.memory_used_gb}/{node.memory_total_gb}G
+                        </span>
+                      </div>
+                    ) : (
+                      '-'
+                    )}
                   </TableCell>
                   <TableCell>
                     {node.status === 'up' ? (
@@ -209,7 +275,7 @@ export function Nodes() {
                       </Button>
                     ) : node.status === 'draining' ? (
                       <Button
-                        variant="secondary"
+                        variant="success"
                         size="sm"
                         onClick={() => resumeMutation.mutate(node.id)}
                         disabled={resumeMutation.isPending}
@@ -220,33 +286,41 @@ export function Nodes() {
                   </TableCell>
                 </TableRow>
               ))}
+              {cpuNodes.length === 0 && (
+                <TableRow>
+                  <TableCell className="text-center text-text-muted py-8" colSpan={5}>
+                    No CPU nodes available
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      {gpuNodes.length > 0 && (
+      {/* GPU Temperature Overview */}
+      {gpuNodes.length > 0 && gpuNodes.some((n) => n.gpus && n.gpus.length > 0) && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Thermometer className="w-5 h-5" />
+              <Thermometer className="w-4 h-4 text-text-muted" />
               GPU Temperature Overview
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {gpuNodes.flatMap((node) =>
                 (node.gpus || []).map((gpu) => (
                   <div
                     key={`${node.id}-${gpu.index}`}
-                    className="p-4 bg-background rounded-lg"
+                    className="p-3 bg-surface-secondary rounded border border-border"
                   >
-                    <p className="text-sm text-text-muted">
-                      {node.id} GPU {gpu.index}
+                    <p className="text-xs text-text-muted mb-1">
+                      {node.id} / GPU {gpu.index}
                     </p>
                     <p
                       className={cn(
-                        'text-2xl font-bold',
+                        'text-xl font-semibold',
                         gpu.temp > 80
                           ? 'text-danger'
                           : gpu.temp > 70
@@ -256,8 +330,8 @@ export function Nodes() {
                     >
                       {gpu.temp}C
                     </p>
-                    <p className="text-xs text-text-muted">
-                      {gpu.utilization}% util | {gpu.power}W
+                    <p className="text-xs text-text-muted mt-1">
+                      {gpu.utilization}% | {gpu.power}W
                     </p>
                   </div>
                 ))

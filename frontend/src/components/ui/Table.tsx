@@ -3,12 +3,13 @@ import { cn } from '@/lib/utils'
 interface TableProps {
   children: React.ReactNode
   className?: string
+  colSpan?: number
 }
 
 export function Table({ children, className }: TableProps) {
   return (
     <div className={cn('overflow-x-auto', className)}>
-      <table className="w-full">
+      <table className="w-full text-sm">
         {children}
       </table>
     </div>
@@ -17,7 +18,7 @@ export function Table({ children, className }: TableProps) {
 
 export function TableHeader({ children, className }: TableProps) {
   return (
-    <thead className={cn('border-b border-border', className)}>
+    <thead className={cn('bg-surface-secondary/50', className)}>
       {children}
     </thead>
   )
@@ -41,15 +42,20 @@ export function TableRow({ children, className }: TableProps) {
 
 export function TableHead({ children, className }: TableProps) {
   return (
-    <th className={cn('px-4 py-3 text-left text-sm font-medium text-text-muted', className)}>
+    <th
+      className={cn(
+        'px-4 py-2.5 text-left text-xs font-medium text-text-muted uppercase tracking-wide',
+        className
+      )}
+    >
       {children}
     </th>
   )
 }
 
-export function TableCell({ children, className }: TableProps) {
+export function TableCell({ children, className, colSpan }: TableProps) {
   return (
-    <td className={cn('px-4 py-3 text-sm text-text', className)}>
+    <td className={cn('px-4 py-3 text-text', className)} colSpan={colSpan}>
       {children}
     </td>
   )
